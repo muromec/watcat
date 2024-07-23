@@ -2,7 +2,7 @@
 
 ## What?
 
-This is not a cat. A picture of a cat will be added to increase confusion somewhere in future. This is poor man's linker or bundler for WAT.
+This is not a cat. A picture of a cat is included at the end. This is poor man's linker or bundler for WAT.
 
 ## Okey, really
 
@@ -76,3 +76,10 @@ Normally this is something that linker should do, but I haven't found any for my
 ## Want to contribute?
 
 If you want to fix some bugs, typos or rewrite the whole thing in erlang or webassembler, send me a PR with a picture of cat.
+
+
+## A cat
+
+Here is an image of the cat.
+
+![The crime scete](https://github.com/muromec/watcat/blob/main/cat.jpg?raw=true)
