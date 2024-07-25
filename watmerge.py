@@ -146,6 +146,11 @@ def merge(modules):
       else:
         head.append(sentence)
 
+  if free_mem and isinstance(free_mem[2], Name):
+    mut = Name()
+    mut.value = 'mut'
+    free_mem = free_mem[:2] + [ [mut, free_mem[2]] ] + free_mem[3:]
+
   combined = [ modules[0][0] ] + imports + head + [free_mem] + data + tail
   def remap_fn(item):
     remapped_name = variable_remap.get(item.name)
