@@ -3,6 +3,9 @@ from watread import parse_sentences, Variable
 
 def rename_prefix(prefix):
   def rename_fn(variable):
+    if variable.name.startswith('module_info_'):
+      return variable.prefixed(prefix)
+
     if variable.name.startswith('module_'):
       return variable
 
