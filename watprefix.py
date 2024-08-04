@@ -12,6 +12,9 @@ def rename_prefix(prefix):
     if variable.name == '__free_mem':
       return variable
 
+    if variable.name.startswith('__unique_atom__'):
+      return variable
+
     return variable.prefixed(prefix)
   return rename_fn
 

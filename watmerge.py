@@ -2,6 +2,7 @@ import re
 from watread import parse_sentences, Name, Variable
 from watprefix import prefix_names, change_names
 from watwrite import serialize
+from repack import repack
 
 def make_prefix(path, idx):
   if path.endswith('.wat'):
@@ -73,6 +74,7 @@ def merge(modules):
   had_memory = False
   had_memory_export = False
   data = []
+  atoms = {}
   
   total_data = 0
 
@@ -84,6 +86,8 @@ def merge(modules):
     found_fn = False
     data_offset += total_data
     total_data = 0
+    module_data = []
+    module_atoms = {}
     for sentence in body:
       name = sentence[0]
       assert isinstance(name, Name)
@@ -120,9 +124,7 @@ def merge(modules):
       if name.value == 'import':
         imports.append(sentence)
       elif name.value == 'data':
-        literal_offset = int(sentence[1][1].str_value)
-        sentence[1][1].str_value = str(literal_offset + data_offset)
-        data.append(sentence)
+        module_data.append(sentence)
       elif name.value == 'global':
         if sentence[1].name == '__free_mem':
           total_data = int(sentence[3][1].str_value)
@@ -138,13 +140,30 @@ def merge(modules):
             ((literal_offset + data_offset) << 2) | 2
           )
           data.append(sentence)
+        elif sentence[1].name.startswith('__unique_atom__'):
+          name = sentence[1].name
+          value = int(sentence[3][1].str_value)
+          module_atoms[name] = value
 
+          if name in atoms:
+            continue
+          elif name not in atoms and value not in atoms.values():
+            atoms[name] = value
+          else:
+            value = len(atoms) + 1
+            atoms[name] = value
+            assert value not in atoms, "Assuming the values increase monotonically"
+
+          sentence[3][1].str_value = str(value)
+          data.append(sentence)
         else:
           data.append(sentence)
       elif found_fn:
         tail.append(sentence)
       else:
         head.append(sentence)
+
+    data += list(map(lambda d : repack(d, data_offset, atoms, module_atoms), module_data))
 
   if free_mem and isinstance(free_mem[2], Name):
     mut = Name()
