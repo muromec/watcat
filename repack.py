@@ -35,7 +35,7 @@ def repack(data_segment, base_offset, atoms, module_atoms):
 
   return data_segment
 
-def fix_value(value, atoms, module_atoms):
+def fix_value(value, segment_offset, base_offset, atoms, module_atoms):
   if (value & 0x3F) == 0xB:
     atom = value >> 6
     for key, value in module_atoms.items():
@@ -47,22 +47,25 @@ def fix_value(value, atoms, module_atoms):
     return (value << 6) | 0xB
 
   if (value & 0x3) == 2:
-    print('found memory address in data segment', hex(value >> 2))
-    assert False
+    raw_ptr = value >> 2
+    raw_ptr += base_offset
+    return (raw_ptr << 2) | 2
 
   return value
 
 def rebase(binary, segment_offset, base_offset, atoms, module_atoms):
-  # print('rebase', binary)
+  # print('rebase', binary, segment_offset)
   offset = 0
   buffer = array.array('B', binary)
   (head, value) = struct.unpack_from('<II', buffer, offset)
   while (head & 0x3) == 1: # list pointer
+    # print('offset', offset)
     raw_ptr = head >> 2
     new_ptr = raw_ptr + base_offset
-    value = fix_value(value, atoms, module_atoms)
+    value = fix_value(value, segment_offset, base_offset, atoms, module_atoms)
     struct.pack_into('<II', buffer, offset, (new_ptr << 2) | 1, value)
     offset = raw_ptr - segment_offset
+    # print('new offset', offset)
     (head, value) = struct.unpack_from('<II', buffer, offset)
 
   if (head & 0x3F) == 0: # tuple header
@@ -71,7 +74,7 @@ def rebase(binary, segment_offset, base_offset, atoms, module_atoms):
       offset += 4
       size -= 1
       (value, ) = struct.unpack_from('<I', buffer, offset)
-      value = fix_value(value, atoms, module_atoms)
+      value = fix_value(value, segment_offset, base_offset, atoms, module_atoms)
       struct.pack_into('<I', buffer, offset, value)
 
   return bytes(buffer)

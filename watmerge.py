@@ -29,6 +29,7 @@ def merge(modules):
     body = mod[1:]
     assert isinstance(name, Name) and name.value == 'module'
     for sentence in body:
+      # print('s', sentence)
       name = sentence[0]
       assert isinstance(name, Name)
       if name.value == 'export':
