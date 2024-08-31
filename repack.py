@@ -17,6 +17,7 @@ def escape_bin(byte_list):
 
 def repack(data_segment, base_offset, atoms, module_atoms):
   segment_offset = int(data_segment[1][1].str_value)
+  data_segment[1][1].str_value = str(segment_offset + base_offset)
   data = data_segment[2]
   str_value = data.str_value
   if not str_value or str_value[0] != '\\':
@@ -31,7 +32,6 @@ def repack(data_segment, base_offset, atoms, module_atoms):
 
   data_segment[2].str_value = escape_bin(binary)
   # assert str_value == data_segment[2].str_value
-  data_segment[1][1].str_value = str(segment_offset + base_offset)
 
   return data_segment
 
