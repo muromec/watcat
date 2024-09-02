@@ -76,6 +76,7 @@ def merge(modules):
   had_memory_export = False
   data = []
   atoms = {}
+  uniqs = {}
   
   total_data = 0
 
@@ -86,6 +87,7 @@ def merge(modules):
     assert isinstance(name, Name) and name.value == 'module'
     found_fn = False
     data_offset += total_data
+    data_offset += (16 - (data_offset % 16)) % 16
     total_data = 0
     module_data = []
     module_atoms = {}
@@ -127,22 +129,28 @@ def merge(modules):
       elif name.value == 'data':
         module_data.append(sentence)
       elif name.value == 'global':
-        if sentence[1].name == '__free_mem':
+        global_name = None
+        if isinstance(sentence[1], Variable):
+          global_name = sentence[1].name
+        else:
+          assert False
+
+        if global_name == '__free_mem':
           total_data = int(sentence[3][1].str_value)
           sentence[3][1].str_value = str(total_data + data_offset)
           free_mem = sentence
-        elif sentence[1].name.endswith('__literal_ptr_raw'):
+        elif global_name.endswith('__literal_ptr_raw'):
           literal_offset = int(sentence[3][1].str_value)
           sentence[3][1].str_value = str(literal_offset + data_offset)
           data.append(sentence)
-        elif sentence[1].name.endswith('__literal_ptr_e'):
+        elif global_name.endswith('__literal_ptr_e'):
           literal_offset = int(sentence[3][1].str_value) >> 2
           sentence[3][1].str_value = str(
             ((literal_offset + data_offset) << 2) | 2
           )
           data.append(sentence)
-        elif sentence[1].name.startswith('__unique_atom__'):
-          name = sentence[1].name
+        elif global_name.startswith('__unique_atom__'):
+          name = global_name
           value = int(sentence[3][1].str_value)
           module_atoms[name] = value
 
@@ -156,6 +164,13 @@ def merge(modules):
             assert value not in atoms, "Assuming the values increase monotonically"
 
           sentence[3][1].str_value = str(value)
+          data.append(sentence)
+        elif global_name.startswith('__unique_'):
+
+          if global_name in uniqs:
+            continue
+
+          uniqs[global_name] = True
           data.append(sentence)
         else:
           data.append(sentence)
