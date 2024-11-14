@@ -14,6 +14,13 @@ def escape_bin(byte_list):
 
   return ret
 
+def unescape_bin(str_value):
+  binary = b''
+  for idx in range(1, len(str_value), 3):
+    bt = str_value[idx:idx+2]
+    binary += bytes([ int(bt, 16) ])
+
+  return binary
 
 def repack(data_segment, base_offset, atoms, module_atoms):
   segment_offset = int(data_segment[1][1].str_value)
@@ -23,10 +30,7 @@ def repack(data_segment, base_offset, atoms, module_atoms):
   if not str_value or str_value[0] != '\\':
     return data_segment
 
-  binary = b''
-  for idx in range(1, len(str_value), 3):
-    bt = str_value[idx:idx+2]
-    binary += bytes([ int(bt, 16) ])
+  binary = unescape_bin(str_value)
 
   binary = rebase(binary, segment_offset, base_offset, atoms, module_atoms)
 

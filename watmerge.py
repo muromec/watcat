@@ -1,8 +1,9 @@
 import re
-from watread import parse_sentences, Name, Variable
+import struct
+from watread import parse_sentences, Name, Variable, Literal
 from watprefix import prefix_names, change_names
 from watwrite import serialize
-from repack import repack
+from repack import repack, unescape_bin, escape_bin
 
 def make_prefix(path, idx):
   if path.endswith('.wat'):
@@ -76,6 +77,7 @@ def merge(modules):
   had_memory_export = False
   data = []
   atoms = {}
+  atom_offsets = { 0: 0 }
   uniqs = {}
   
   total_data = 0
@@ -91,6 +93,7 @@ def merge(modules):
     total_data = 0
     module_data = []
     module_atoms = {}
+    atom_table_offset = None
     for sentence in body:
       name = sentence[0]
       assert isinstance(name, Name)
@@ -165,6 +168,10 @@ def merge(modules):
 
           sentence[3][1].str_value = str(value)
           data.append(sentence)
+        elif global_name == '__unique_table_of_atoms_ptr_raw':
+          atom_table_offset = int(sentence[3][1].str_value)
+        elif global_name == '__unique_table_of_atoms_ptr_e':
+          pass
         elif global_name.startswith('__unique_'):
 
           if global_name in uniqs:
@@ -179,7 +186,66 @@ def merge(modules):
       else:
         head.append(sentence)
 
+    atom_table = None
+    for segment in module_data:
+      if atom_table_offset and segment[0].value == 'data' and int(segment[1][1].str_value):
+        atom_table = segment
+
+    if atom_table:
+      module_data.remove(atom_table)
+    else:
+      pass
+
     data += list(map(lambda d : repack(d, data_offset, atoms, module_atoms), module_data))
+
+    if atom_table:
+      bin_table = unescape_bin(atom_table[2].str_value)
+      for atom_name, atom_id in module_atoms.items():
+        atom_global_id = atoms[atom_name]
+        (offset,) = struct.unpack_from('<I', bin_table, 8 + (atom_id * 4))
+        atom_offsets[atom_global_id] = offset + data_offset
+
+  data_offset += total_data
+  assert (free_mem[3][1].str_value == str(data_offset))
+
+  def make_data_segment(offset, contents):
+    dat = Name()
+    dat.value = 'data'
+    sz = Name()
+    sz.value = 'i32.const'
+    off = Literal()
+    off.typ = 'num'
+    off.str_value = str(offset)
+    ct = Literal()
+    ct.typ = 'str'
+    ct.str_value = escape_bin(contents)
+    return [dat, [sz, off], ct]
+
+  def make_global(name, value):
+    dat = Name()
+    dat.value = 'global'
+    sz = Name()
+    sz.value = 'i32.const'
+    typ = Name()
+    typ.value = 'i32'
+
+    off = Literal()
+    off.typ = 'num'
+    off.str_value = str(value)
+    vname = Variable()
+    vname.name = name
+    return [dat, vname, typ, [sz, off]]
+
+  atom_table_bin = bytearray(b'\00' * ((len(atom_offsets) * 4) + 8))
+  struct.pack_into('<II', atom_table_bin, 0, 0x24, len(atom_offsets) << 5)
+
+  for atom_id, offset in atom_offsets.items():
+    struct.pack_into('<I', atom_table_bin, 8 + atom_id * 4, offset)
+
+  data.append(make_data_segment(data_offset, atom_table_bin))
+  data.append(make_global('__unique_table_of_atoms_ptr_raw', data_offset))
+
+  free_mem[3][1].str_value = str(data_offset + len(atom_table_bin))
 
   if free_mem and isinstance(free_mem[2], Name):
     mut = Name()
