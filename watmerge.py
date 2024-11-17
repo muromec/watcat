@@ -236,7 +236,7 @@ def merge(modules):
     vname.name = name
     return [dat, vname, typ, [sz, off]]
 
-  atom_table_bin = bytearray(b'\00' * ((len(atom_offsets) * 4) + 8))
+  atom_table_bin = bytearray(b'\00' * ((len(atom_offsets) * 4) + 16))
   struct.pack_into('<II', atom_table_bin, 0, 0x24, len(atom_offsets) << 5)
 
   for atom_id, offset in atom_offsets.items():
