@@ -23,6 +23,7 @@ class Export:
 def merge(modules):
   all_exports = {}
   variable_remap = {}
+  dispatches = {}
   combined = []
   # walk to find all exports
   for mod in modules:
@@ -131,6 +132,11 @@ def merge(modules):
         imports.append(sentence)
       elif name.value == 'data':
         module_data.append(sentence)
+      elif name.value == 'func' and sentence[1].name.startswith('__unique__global_dispatch'):
+        arity_acc = dispatches.get(sentence[1].name) or []
+        arity_acc.append(sentence)
+        dispatches[sentence[1].name] = arity_acc
+        continue
       elif name.value == 'global':
         global_name = None
         if isinstance(sentence[1], Variable):
@@ -259,7 +265,23 @@ def merge(modules):
     remapped.name = remapped_name or item.name
     return remapped
 
-  return list(change_names(remap_fn, combined))
+
+  def combine_dispatch(funcs):
+    base = funcs[0]
+    for func in funcs[1:]:
+      for (idx, statement) in enumerate(func):
+        if isinstance(statement, list) and isinstance(statement[0], Name) and statement[0].value == 'if':
+          base.insert(-1, statement)
+
+    return base
+
+  def combine_dispatches():
+    return list([
+      combine_dispatch(collector)
+      for collector in dispatches.values()
+    ])
+
+  return list(change_names(remap_fn, combined)) + combine_dispatches()
 
 
 def main(*fnames):
