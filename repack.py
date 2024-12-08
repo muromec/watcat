@@ -61,6 +61,8 @@ def rebase(binary, segment_offset, base_offset, atoms, module_atoms):
   # print('rebase', binary, segment_offset)
   offset = 0
   buffer = array.array('B', binary)
+  if binary == b'\x00' * 4:
+    return binary
   (head, value) = struct.unpack_from('<II', buffer, offset)
   while (head & 0x3) == 1: # list pointer
     # print('offset', offset)
